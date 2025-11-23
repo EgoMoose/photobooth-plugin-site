@@ -183,7 +183,7 @@ const Header: React.FC<IHeaderProps> = ({ currentPage, onNavigate }) => (
           onClick={() => onNavigate(PAGES.PROCESSOR)}
           className={`py-1 px-2 transition duration-300 ${currentPage === PAGES.PROCESSOR ? 'text-indigo-400 font-bold' : 'text-gray-300 hover:text-indigo-400'}`}
         >
-          Processor
+          Tools
         </button>
         <button
           onClick={() => onNavigate(PAGES.ABOUT)}
@@ -632,7 +632,7 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>(PAGES.HOME);
 
   // Function to render the correct content based on the current page state
-  const renderPageContent = (): JSX.Element => {
+  const renderPageContent = (): React.JSX.Element => {
     switch (currentPage) {
       case PAGES.HOME:
         return (
