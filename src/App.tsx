@@ -27,7 +27,6 @@ interface IHeaderProps {
 }
 
 interface IHeroSectionProps {
-  onNavigate: (page: Page) => void;
 }
 
 // --- Page Definitions ---
@@ -115,21 +114,17 @@ const processGLTF = (data: string | ArrayBuffer | null, isBinary: boolean): IGLT
         throw new Error("JSON is valid, but missing required 'asset' property with a 'version'.");
       }
 
-      const meshCount: number = json.meshes ? json.meshes.length : 0;
-      const nodeCount: number = json.nodes ? json.nodes.length : 0;
-      const materialCount: number = json.materials ? json.materials.length : 0;
+      const isRobloxGenerated: boolean = json.asset ? json.asset.generator === "Roblox Export" : false;
+      const imgCount: number = json.images ? json.meshes.length : 0;
 
       const jsonData: IProcessData = {
-        AssetVersion: json.asset.version,
-        Meshes: meshCount,
-        Nodes: nodeCount,
-        Materials: materialCount,
-        ExtensionsUsed: json.extensionsUsed ? json.extensionsUsed.join(', ') : 'None'
+        Images: imgCount,
+        "Roblox glTF": isRobloxGenerated.toString(),
       };
 
       return {
         isValid: true,
-        message: `glTF JSON Validated. Ready for import!`,
+        message: `glTF JSON is valid. Downloading images!`,
         data: jsonData,
         isBinary: false
       };
@@ -192,7 +187,7 @@ const Header: React.FC<IHeaderProps> = ({ currentPage, onNavigate }) => (
   </header>
 );
 
-const HeroSection: React.FC<IHeroSectionProps> = ({ onNavigate }) => (
+const HeroSection: React.FC<IHeroSectionProps> = () => (
   <section className="pt-32 pb-16 bg-gray-900 text-center relative overflow-hidden">
     <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-900 to-indigo-900 opacity-20"></div>
     <div className="max-w-4xl mx-auto px-4 relative z-10">
@@ -249,6 +244,7 @@ const FeaturesSection: React.FC = () => (
 );
 
 const GLTFProcessor: React.FC = () => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [inputText, setInputText] = useState<string>('');
   const [fileInput, setFileInput] = useState<File | null>(null);
   const [processingResult, setProcessingResult] = useState<IGLTFProcessResult | null>(null);
@@ -275,8 +271,8 @@ const GLTFProcessor: React.FC = () => {
       }
 
       // Append the alpha bleeding status to the result data for demonstration
-      if (result && result.data) {
-        result.data['Image Alpha Bleeding'] = alphaBleedingEnabled ? 'Enabled (2px Dilation)' : 'Disabled';
+      if (result && result.data && alphaBleedingEnabled) {
+        result.data['Alpha Bleed'] = 'Enabled';
       }
 
       setProcessingResult(result);
@@ -318,15 +314,21 @@ const GLTFProcessor: React.FC = () => {
 
       // Append the alpha bleeding status to the result data for demonstration
       if (result && result.data) {
-        result.data['Image Alpha Bleeding'] = alphaBleedingEnabled ? 'Enabled (2px Dilation)' : 'Disabled';
+        result.data['Alpha Bleed'] = alphaBleedingEnabled ? 'true' : 'false';
       }
 
       setProcessingResult(result);
       setIsLoading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     };
     reader.onerror = () => {
       setProcessingResult({ isValid: false, message: "Error reading file.", data: null, isBinary });
       setIsLoading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     };
 
     // Read the file based on type to simulate correct reading
@@ -344,6 +346,10 @@ const GLTFProcessor: React.FC = () => {
     setProcessingResult(null);
   }
 
+  const handleFileButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
   const resultIcon = useMemo(() => {
     if (!processingResult) return null;
     const commonClasses = "w-8 h-8 mr-3";
@@ -357,10 +363,10 @@ const GLTFProcessor: React.FC = () => {
     <section className="py-20 bg-gray-900 border-t border-gray-800 min-h-screen pt-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 className="text-4xl font-bold text-center text-white mb-4">
-          <span className="text-indigo-400">GLTF</span> Validation Sandbox
+          <span className="text-indigo-400">GLTF</span> To Png
         </h2>
         <p className="text-xl text-center text-gray-500 mb-12">
-          Quickly check your asset structure and metadata before a full import.
+          Pull captured pngs from the glTF export format.
         </p>
 
         <div className="bg-gray-800 p-8 rounded-xl shadow-2xl max-w-4xl mx-auto border border-gray-700">
@@ -371,7 +377,7 @@ const GLTFProcessor: React.FC = () => {
               className={`py-3 px-6 font-semibold rounded-t-lg transition duration-300 ${mode === 'upload' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-700'
                 }`}
             >
-              <UploadCloud className="inline w-5 h-5 mr-2" /> Upload File (.gltf / .glb)
+              <UploadCloud className="inline w-5 h-5 mr-2" /> Upload File (.gltf)
             </button>
             <button
               onClick={() => handleModeToggle('paste')}
@@ -386,8 +392,7 @@ const GLTFProcessor: React.FC = () => {
           <div className="flex items-center space-x-3 mb-6 p-3 bg-gray-700 rounded-lg">
             <Image className="w-5 h-5 text-indigo-400" />
             <label htmlFor="alpha-bleeding" className="text-gray-300 font-medium cursor-pointer flex items-center">
-              Enable Texture Alpha Bleeding
-              <span className="ml-2 text-xs text-gray-400">(Prevents texture bleeding/edge artifacts)</span>
+              Alpha Bleed
             </label>
 
             <button
@@ -411,18 +416,19 @@ const GLTFProcessor: React.FC = () => {
               <UploadCloud className="w-12 h-12 text-indigo-400 mb-3" />
               <p className="text-white text-lg font-semibold mb-2">Drag & Drop or Click to Upload</p>
               <p className="text-gray-400 text-sm mb-4">Select file to automatically run validation.</p>
+              <button
+                onClick={handleFileButtonClick}
+                className="w-full md:w-auto px-6 py-3 bg-indigo-600 text-white font-semibold rounded-full shadow-md hover:bg-indigo-700 transition duration-300 transform hover:scale-[1.02]"
+              >
+                Choose File
+              </button>
               <input
                 type="file"
-                accept=".gltf,.glb"
+                accept=".gltf"
                 onChange={handleFileChange}
-                className="block w-full text-sm text-gray-500
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-full file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-indigo-50 file:text-indigo-700
-                  hover:file:bg-indigo-100"
+                className="hidden"
+                ref={fileInputRef}
               />
-              {fileInput && <p className="mt-3 text-sm text-green-400">File selected: {fileInput.name}</p>}
             </div>
           ) : (
             <div className="flex flex-col">
@@ -521,7 +527,7 @@ const App: React.FC = () => {
       case PAGES.HOME:
         return (
           <>
-            <HeroSection onNavigate={setCurrentPage} />
+            <HeroSection />
             <FeaturesSection />
           </>
         );
@@ -532,7 +538,7 @@ const App: React.FC = () => {
       case PAGES.ABOUT:
         return <AboutSection />;
       default:
-        return <HeroSection onNavigate={setCurrentPage} />;
+        return <HeroSection />;
     }
   };
 
