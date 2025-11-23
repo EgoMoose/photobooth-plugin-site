@@ -30,10 +30,6 @@ interface IHeroSectionProps {
   onNavigate: (page: Page) => void;
 }
 
-interface IImageCarouselProps {
-  images: string[];
-}
-
 // --- Page Definitions ---
 const PAGES: Record<string, Page> = {
   HOME: 'home',
@@ -65,14 +61,6 @@ const PLUGIN_FEATURES: IFeature[] = [
     description: "Segment massive external maps into Roblox-compatible chunks, integrating perfectly with streaming and world limits.",
   },
 ];
-
-const carouselImages: string[] = [
-  'https://via.placeholder.com/1200x600/1e293b/a5b4fc?text=Plugin+Screenshot+1', // Placeholder for feature 1
-  'https://via.placeholder.com/1200x600/1e293b/a5b4fc?text=Optimized+Roblox+World', // Placeholder for feature 2
-  'https://via.placeholder.com/1200x600/1e293b/a5b4fc?text=Material+Converter+UI', // Placeholder for feature 3
-  'https://via.placeholder.com/1200x600/1e293b/a5b4fc?text=GLTF+Import+Workflow', // Placeholder for feature 4
-];
-
 
 // --- Utility Functions ---
 
@@ -166,8 +154,8 @@ const Header: React.FC<IHeaderProps> = ({ currentPage, onNavigate }) => (
     <div className="max-w-7xl mx-auto flex justify-between items-center">
       <div className="flex items-center space-x-6">
         <button onClick={() => onNavigate(PAGES.HOME)} className="flex items-center text-2xl font-bold text-indigo-400 font-mono hover:text-indigo-500 transition duration-300">
-          <span className="text-gray-100">Roblox</span>
-          <span className="text-indigo-500">GLTF</span>Pro
+          <span className="text-gray-100">Photo</span>
+          <span className="text-indigo-500">booth</span>
         </button>
       </div>
 
@@ -193,12 +181,11 @@ const Header: React.FC<IHeaderProps> = ({ currentPage, onNavigate }) => (
         </button>
       </nav>
       <a
-        href="https://www.roblox.com/library/12345/MyPlugin" // Placeholder link
+        href="https://devforum.roblox.com/t/3401720"
         target="_blank"
         rel="noopener noreferrer"
         className="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-300 flex items-center space-x-2"
       >
-        <Download className="w-5 h-5" />
         <span>Get Plugin</span>
       </a>
     </div>
@@ -210,117 +197,27 @@ const HeroSection: React.FC<IHeroSectionProps> = ({ onNavigate }) => (
     <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-900 to-indigo-900 opacity-20"></div>
     <div className="max-w-4xl mx-auto px-4 relative z-10">
       <h2 className="text-5xl md:text-6xl font-extrabold text-white mb-6 leading-tight">
-        The Ultimate <span className="text-indigo-400">3D Asset</span> Pipeline for Roblox.
+        The Ultimate <span className="text-indigo-400">Capture Tool</span> for Roblox.
       </h2>
       <p className="text-xl text-gray-400 mb-10">
-        Stop wrestling with complex imports. Our plugin handles glTF, PBR, and mesh optimization, letting you focus on building incredible experiences, not fixing file errors.
+        Stop wrestling with complex asset image workflows.
+        Photobooth captures images for you, letting you focus on building incredible experiences, not setting up green screens.
       </p>
       <div className="flex justify-center space-x-4">
         <button
-          onClick={() => onNavigate(PAGES.PROCESSOR)}
           className="px-8 py-4 bg-indigo-600 text-white text-lg font-bold rounded-xl shadow-2xl shadow-indigo-500/50 hover:bg-indigo-700 transition duration-300 transform hover:scale-105"
         >
-          Try the GLTF Processor Now
-        </button>
-        <button
-          onClick={() => onNavigate(PAGES.FEATURES)}
-          className="px-8 py-4 border-2 border-gray-700 text-gray-300 text-lg font-semibold rounded-xl hover:bg-gray-800 transition duration-300 transform hover:scale-105"
-        >
-          See All Features
+          <a
+            href="https://devforum.roblox.com/t/3401720"
+            target="_blank"
+          >
+            <span>Get Plugin</span>
+          </a>
         </button>
       </div>
     </div>
   </section>
 );
-
-const ImageCarousel: React.FC<IImageCarouselProps> = ({ images }) => {
-  const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const intervalRef = useRef<number | undefined>(undefined);
-
-  const goToNext = useCallback(() => {
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
-  }, [images.length]);
-
-  const goToPrevious = (): void => {
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + images.length) % images.length);
-  };
-
-  const goToSlide = (index: number): void => {
-    setCurrentIndex(index);
-  };
-
-  useEffect(() => {
-    // Auto-scroll
-    intervalRef.current = window.setInterval(goToNext, 5000); // Change image every 5 seconds
-
-    return () => {
-      if (intervalRef.current !== undefined) {
-        window.clearInterval(intervalRef.current);
-      }
-    };
-  }, [goToNext]);
-
-  // Pause on hover
-  const handleMouseEnter = (): void => {
-    if (intervalRef.current !== undefined) {
-      window.clearInterval(intervalRef.current);
-    }
-  };
-
-  const handleMouseLeave = (): void => {
-    intervalRef.current = window.setInterval(goToNext, 5000);
-  };
-
-  return (
-    // Updated container to enforce aspect ratio and max height
-    <div className="relative w-full max-w-6xl mx-auto my-8 md:my-16 overflow-hidden rounded-xl shadow-2xl border border-gray-700 aspect-video max-h-[600px]"
-      onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-
-      {/* Updated inner container to use absolute positioning and h-full */}
-      <div className="absolute inset-0 flex transition-transform duration-700 ease-in-out h-full"
-        style={{ transform: `translateX(-${currentIndex * 100}%)` }}>
-        {images.map((image, index) => (
-          // Inner slide must also be h-full
-          <div key={index} className="w-full h-full flex-shrink-0">
-            <img
-              src={image}
-              alt={`Plugin Feature ${index + 1}`}
-              // Image must use h-full and object-cover to scale correctly within the aspect-video container
-              className="w-full h-full object-cover rounded-xl"
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Navigation Arrows */}
-      <button
-        onClick={goToPrevious}
-        className="absolute top-1/2 left-4 transform -translate-y-1/2 bg-gray-800/60 hover:bg-gray-800/90 text-white p-2 rounded-full transition duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 z-10"
-      >
-        <ChevronLeft className="w-6 h-6" />
-      </button>
-      <button
-        onClick={goToNext}
-        className="absolute top-1/2 right-4 transform -translate-y-1/2 bg-gray-800/60 hover:bg-gray-800/90 text-white p-2 rounded-full transition duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 z-10"
-      >
-        <ChevronRight className="w-6 h-6" />
-      </button>
-
-      {/* Navigation Dots */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-10">
-        {images.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => goToSlide(index)}
-            className={`w-3 h-3 rounded-full transition-all duration-300 ${currentIndex === index ? 'bg-indigo-500 scale-125' : 'bg-gray-400 hover:bg-gray-200'
-              }`}
-          ></button>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 
 const FeaturesSection: React.FC = () => (
   // Removed pt-16 here to prevent excessive top padding when placed on the homepage
@@ -612,19 +509,6 @@ const AboutSection: React.FC = () => (
   </section>
 );
 
-const Footer: React.FC = () => (
-  <footer className="bg-gray-950 border-t border-gray-800 py-8">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-500">
-      <p className="mb-2">
-        &copy; {new Date().getFullYear()} RobloxGLTFPro. Built for the future of Roblox development.
-      </p>
-      <div className="flex justify-center space-x-6">
-        <button className="hover:text-indigo-400 transition" onClick={() => console.log('Privacy policy clicked')}>Privacy Policy</button>
-        <button className="hover:text-indigo-400 transition" onClick={() => console.log('Terms of Service clicked')}>Terms of Service</button>
-      </div>
-    </div>
-  </footer>
-);
 
 // --- Main App Component ---
 
@@ -638,7 +522,6 @@ const App: React.FC = () => {
         return (
           <>
             <HeroSection onNavigate={setCurrentPage} />
-            <ImageCarousel images={carouselImages} />
             <FeaturesSection />
           </>
         );
@@ -665,7 +548,6 @@ const App: React.FC = () => {
       <main className={currentPage !== PAGES.HOME ? "pt-16" : ""}>
         {renderPageContent()}
       </main>
-      <Footer />
     </div>
   );
 };
