@@ -153,53 +153,56 @@ const GLTFProcessor: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [mode, fileInput, inputText, alphaBleedingEnabled]);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const file = event.target.files ? event.target.files[0] : null;
-    if (!file) return;
+  const { getRootProps, getInputProps, open } = useDropzone({
+    noClick: true, // Important: Prevents opening file dialog on dropzone click
+    onDrop: acceptedFiles => {
+      const file = acceptedFiles[0];
+      if (!file) return;
 
-    setFileInput(file);
-    setInputText(''); // Clear text input mode if file is selected
-    setProcessingResult(null); // Clear previous result
+      setFileInput(file);
+      setInputText(''); // Clear text input mode if file is selected
+      setProcessingResult(null); // Clear previous result
 
-    const reader = new FileReader();
-    reader.onloadstart = () => setIsLoading(true);
-    reader.onload = (e: ProgressEvent<FileReader>) => {
-      let data: string | ArrayBuffer | null = e.target?.result ?? null;
-      let result: IGLTFProcessResult;
+      const reader = new FileReader();
+      reader.onloadstart = () => setIsLoading(true);
+      reader.onload = (e: ProgressEvent<FileReader>) => {
+        let data: string | ArrayBuffer | null = e.target?.result ?? null;
+        let result: IGLTFProcessResult;
 
-      if (data) {
-        // Actual file data parsing is complex, we just check headers and run the mock process
-        if (typeof data === 'string') {
-          result = processGLTF(data);
+        if (data) {
+          // Actual file data parsing is complex, we just check headers and run the mock process
+          if (typeof data === 'string') {
+            result = processGLTF(data);
+          } else {
+            result = { isValid: false, message: "Unsupported file reader result type.", data: null };
+          }
         } else {
-          result = { isValid: false, message: "Unsupported file reader result type.", data: null };
+          result = { isValid: false, message: "File data could not be read.", data: null };
         }
-      } else {
-        result = { isValid: false, message: "File data could not be read.", data: null };
-      }
 
-      // Append the alpha bleeding status to the result data for demonstration
-      if (result && result.data) {
-        //result.data.metadata['Alpha Bleed'] = alphaBleedingEnabled ? 'true' : 'false';
-        zipAndSavePngs(result.data.pngs);
-      }
+        // Append the alpha bleeding status to the result data for demonstration
+        if (result && result.data) {
+          //result.data.metadata['Alpha Bleed'] = alphaBleedingEnabled ? 'true' : 'false';
+          zipAndSavePngs(result.data.pngs);
+        }
 
-      setProcessingResult(result);
-      setIsLoading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-    };
-    reader.onerror = () => {
-      setProcessingResult({ isValid: false, message: "Error reading file.", data: null, isBinary });
-      setIsLoading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-    };
+        setProcessingResult(result);
+        setIsLoading(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+      };
+      reader.onerror = () => {
+        setProcessingResult({ isValid: false, message: "Error reading file.", data: null, isBinary });
+        setIsLoading(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+      };
 
-    reader.readAsText(file);
-  };
+      reader.readAsText(file);
+    },
+  });
 
   const handleModeToggle = (newMode: 'upload' | 'paste'): void => {
     setMode(newMode);
@@ -207,10 +210,6 @@ const GLTFProcessor: React.FC = () => {
     setInputText('');
     setProcessingResult(null);
   }
-
-  const handleFileButtonClick = () => {
-    fileInputRef.current?.click();
-  };
 
   const resultIcon = useMemo(() => {
     if (!processingResult) return null;
@@ -274,12 +273,12 @@ const GLTFProcessor: React.FC = () => {
 
           {/* Input Area */}
           {mode === 'upload' ? (
-            <div className="flex flex-col items-center justify-center p-10 border-4 border-dashed border-indigo-700 rounded-lg bg-gray-700/50">
+            <div className="flex flex-col items-center justify-center p-10 border-4 border-dashed border-indigo-700 rounded-lg bg-gray-700/50" {...getRootProps()}>
               <UploadCloud className="w-12 h-12 text-indigo-400 mb-3" />
               <p className="text-white text-lg font-semibold mb-2">Drag & Drop or Click to Upload</p>
               <p className="text-gray-400 text-sm mb-4">Select file to convert to pngs.</p>
               <button
-                onClick={handleFileButtonClick}
+                onClick={open}
                 className="w-full md:w-auto px-6 py-3 bg-indigo-600 text-white font-semibold rounded-full shadow-md hover:bg-indigo-700 transition duration-300 transform hover:scale-[1.02]"
               >
                 Choose File
@@ -287,9 +286,9 @@ const GLTFProcessor: React.FC = () => {
               <input
                 type="file"
                 accept=".gltf"
-                onChange={handleFileChange}
                 className="hidden"
                 ref={fileInputRef}
+                {...getInputProps()}
               />
             </div>
           ) : (
