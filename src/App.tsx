@@ -114,8 +114,6 @@ const Header: React.FC = () => (
   </header>
 );
 
-
-
 const GLTFProcessor: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [inputText, setInputText] = useState<string>('');
@@ -193,7 +191,7 @@ const GLTFProcessor: React.FC = () => {
         }
       };
       reader.onerror = () => {
-        setProcessingResult({ isValid: false, message: "Error reading file.", data: null, isBinary });
+        setProcessingResult({ isValid: false, message: "Error reading file.", data: null });
         setIsLoading(false);
         if (fileInputRef.current) {
           fileInputRef.current.value = ''
