@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { UploadCloud, Cpu, Layers, Zap, CheckCircle, XCircle, FileText, Code, Globe, Home, Image } from 'lucide-react';
-import { useDropzone } from 'react-dropzone'
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { UploadCloud, CheckCircle, XCircle, FileText, Code } from 'lucide-react';
+import { useDropzone } from 'react-dropzone';
 import JSZip from 'jszip';
 
 // --- Type Definitions ---
