@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { Download, UploadCloud, Cpu, Layers, Zap, CheckCircle, XCircle, FileText, Code, Globe, Home, ChevronLeft, ChevronRight, Image } from 'lucide-react';
+import { UploadCloud, Cpu, Layers, Zap, CheckCircle, XCircle, FileText, Code, Globe, Home, Image } from 'lucide-react';
+import JSZip from 'jszip';
 
 // --- Type Definitions ---
 type Page = 'home' | 'features' | 'processor' | 'about';
@@ -10,8 +11,13 @@ interface IFeature {
   description: string;
 }
 
+interface Metadata {
+  [key: string]: string | number
+};
+
 interface IProcessData {
-  [key: string]: string | number;
+  pngs: string[];
+  metadata: Metadata;
 }
 
 interface IGLTFProcessResult {
@@ -69,40 +75,24 @@ const PLUGIN_FEATURES: IFeature[] = [
  * @param {boolean} isBinary - True if the input is a .glb file.
  * @returns {IGLTFProcessResult}
  */
-const processGLTF = (data: string | ArrayBuffer | null, isBinary: boolean): IGLTFProcessResult => {
-  if (!data) {
-    // This path is hit when mocking the file upload analysis
-    const mockData: IProcessData = {
-      Format: isBinary ? "GLB (Binary)" : "GLTF (JSON)",
-      Meshes: isBinary ? '128' : '24', // Mock counts
-      ImagesToProcess: isBinary ? '12' : '4', // Mock counts
-    };
-    return {
-      isValid: true,
-      message: isBinary
-        ? "GLB File detected. Header structure validated. Ready for texture extraction!"
-        : "GLTF file detected. Structure validated. Ready for texture extraction!",
-      data: mockData,
-      isBinary: isBinary
-    };
-  }
-
+const processGLTF = (data: string | ArrayBuffer, isBinary: boolean): IGLTFProcessResult => {
   try {
     if (isBinary && data instanceof ArrayBuffer) {
       // Mocked GLB header check for consistency
       const version = 2;
       const length = data.byteLength;
 
-      const binaryData: IProcessData = {
-        Format: "GLB (Binary)",
-        Version: version,
-        Length: `${(length / 1024 / 1024).toFixed(2)} MB`,
-        Note: "Binary content requires specialized parsing. Metadata inferred from header."
-      };
+      // const binaryData: IProcessData = {
+      //   Format: "GLB (Binary)",
+      //   Version: version,
+      //   Length: `${(length / 1024 / 1024).toFixed(2)} MB`,
+      //   Note: "Binary content requires specialized parsing. Metadata inferred from header."
+      // };
+
       return {
         isValid: true,
         message: `GLB File Structure Valid. Version: ${version}, Total Length: ${length} bytes.`,
-        data: binaryData,
+        data: null,
         isBinary: true
       };
 
@@ -115,11 +105,20 @@ const processGLTF = (data: string | ArrayBuffer | null, isBinary: boolean): IGLT
       }
 
       const isRobloxGenerated: boolean = json.asset ? json.asset.generator === "Roblox Export" : false;
-      const imgCount: number = json.images ? json.meshes.length : 0;
+      const imgCount: number = json.images ? json.images.length : 0;
+
+      const pngs: string[] = [];
+      for (const img of json.images) {
+        const base64 = img.uri.split(",")[1];
+        pngs.push(base64);
+      }
 
       const jsonData: IProcessData = {
-        Images: imgCount,
-        "Roblox glTF": isRobloxGenerated.toString(),
+        pngs: pngs,
+        metadata: {
+          ["Images"]: imgCount,
+          ["Roblox glTF"]: isRobloxGenerated.toString(),
+        }
       };
 
       return {
@@ -243,6 +242,26 @@ const FeaturesSection: React.FC = () => (
   </section>
 );
 
+const zipAndSavePngs = (pngs: string[]) => {
+  const zip = new JSZip();
+  for (let i = 0; i < pngs.length; i++) {
+    let b64 = pngs[i];
+    zip.file("export_" + i.toString() + ".png", b64, { base64: true });
+  }
+  zip.generateAsync({ type: "blob" })
+    .then(function (content) {
+      var downloadLink = document.createElement("a");
+      downloadLink.href = URL.createObjectURL(content);
+      downloadLink.download = "images.zip";
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    })
+    .catch(function (error) {
+      throw new Error("Error generating zip file:", error);
+    });
+}
+
 const GLTFProcessor: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [inputText, setInputText] = useState<string>('');
@@ -259,20 +278,17 @@ const GLTFProcessor: React.FC = () => {
     // Simulate API delay
     const timeoutId = setTimeout(() => {
       let result: IGLTFProcessResult | null = null;
-      let isBinary: boolean = false;
 
-      if (mode === 'upload' && fileInput) {
-        isBinary = fileInput.name.toLowerCase().endsWith('.glb');
-        result = processGLTF(null, isBinary); // Mock processing a file
-      } else if (mode === 'paste' && inputText) {
+      if (mode === 'paste' && inputText) {
         result = processGLTF(inputText, false);
       } else {
         result = { isValid: false, message: "Please provide file data or paste JSON.", data: null, isBinary: false };
       }
 
       // Append the alpha bleeding status to the result data for demonstration
-      if (result && result.data && alphaBleedingEnabled) {
-        result.data['Alpha Bleed'] = 'Enabled';
+      if (result && result.data) {
+        result.data.metadata['Alpha Bleed'] = alphaBleedingEnabled ? 'true' : 'false';
+        zipAndSavePngs(result.data.pngs);
       }
 
       setProcessingResult(result);
@@ -314,7 +330,8 @@ const GLTFProcessor: React.FC = () => {
 
       // Append the alpha bleeding status to the result data for demonstration
       if (result && result.data) {
-        result.data['Alpha Bleed'] = alphaBleedingEnabled ? 'true' : 'false';
+        result.data.metadata['Alpha Bleed'] = alphaBleedingEnabled ? 'true' : 'false';
+        zipAndSavePngs(result.data.pngs);
       }
 
       setProcessingResult(result);
@@ -472,12 +489,12 @@ const GLTFProcessor: React.FC = () => {
                   <h4 className="text-lg font-semibold text-white border-b border-gray-600 pb-2 flex items-center">
                     <Code className="w-4 h-4 mr-2" /> Extracted Metadata & Settings:
                   </h4>
-                  {Object.entries(processingResult.data).map(([key, value]) => (
+                  {Object.entries(processingResult.data.metadata).map(([key, value]) => (
                     <p key={key} className="text-sm text-gray-300">
                       <span className="font-mono text-indigo-300 pr-2">{key}:</span>
                       {value}
-                    </p>
-                  ))}
+                    </p>)
+                  )}
                 </div>
               )}
             </div>
