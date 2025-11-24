@@ -153,6 +153,9 @@ const GLTFProcessor: React.FC = () => {
 
   const { getRootProps, getInputProps, open } = useDropzone({
     noClick: true, // Important: Prevents opening file dialog on dropzone click
+    accept: {
+      'model/gltf+json': ['.gltf'],
+    },
     onDrop: acceptedFiles => {
       const file = acceptedFiles[0];
       if (!file) return;
