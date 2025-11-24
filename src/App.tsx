@@ -121,7 +121,7 @@ const GLTFProcessor: React.FC = () => {
   const [processingResult, setProcessingResult] = useState<IGLTFProcessResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [mode, setMode] = useState<'upload' | 'paste'>('upload'); // 'upload' or 'paste'
-  const [alphaBleedingEnabled, setAlphaBleedingEnabled] = useState<boolean>(false); // State for alpha bleeding
+  const [alphaBleedingEnabled, _setAlphaBleedingEnabled] = useState<boolean>(false); // State for alpha bleeding
 
   const handleProcess = useCallback((): (() => (void)) => {
     setIsLoading(true);
