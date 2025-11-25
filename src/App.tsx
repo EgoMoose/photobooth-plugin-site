@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { UploadCloud, CheckCircle, XCircle, FileText, Code } from 'lucide-react';
+import { UploadCloud, CheckCircle, XCircle, FileText, Code, FileArchive } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import JSZip from 'jszip';
 
@@ -9,8 +9,13 @@ interface Metadata {
   [key: string]: string | number
 };
 
+interface GLTFPng {
+  name: string;
+  uri: string;
+}
+
 interface IProcessData {
-  pngs: string[];
+  pngs: GLTFPng[];
   metadata: Metadata;
 }
 
@@ -21,6 +26,18 @@ interface IGLTFProcessResult {
 }
 
 // --- Utility Functions ---
+
+const sanitizeFilename = (filename: string) => {
+  let sanitized = filename.replace(/[/?%*:|"<>\x00-\x1F]/g, '_');
+  // Replace spaces with hyphens (optional, but often recommended)
+  sanitized = sanitized.replace(/\s/g, '-');
+  // Remove leading/trailing dots or hyphens that could be problematic
+  sanitized = sanitized.replace(/^[.-]+|[.-]+$/g, '');
+  // Ensure no multiple consecutive underscores or hyphens
+  sanitized = sanitized.replace(/[_]{2,}/g, '_');
+  sanitized = sanitized.replace(/[-]{2,}/g, '-');
+  return sanitized;
+}
 
 const processGLTF = (data: string): IGLTFProcessResult => {
   try {
@@ -38,10 +55,12 @@ const processGLTF = (data: string): IGLTFProcessResult => {
 
       const imgCount: number = json.images ? json.images.length : 0;
 
-      const pngs: string[] = [];
-      for (const img of json.images) {
-        const base64 = img.uri.split(",")[1];
-        pngs.push(base64);
+      const pngs: GLTFPng[] = [];
+      for (let i = 0; i < json.images.length; i++) {
+        pngs.push({
+          name: json.meshes[i] ? sanitizeFilename(json.meshes[i].name) : `unknown_${crypto.randomUUID()}_${i.toString()}`,
+          uri: json.images[i].uri,
+        });
       }
 
       const jsonData: IProcessData = {
@@ -70,17 +89,25 @@ const processGLTF = (data: string): IGLTFProcessResult => {
   }
 };
 
-const zipAndSavePngs = (pngs: string[]) => {
+const savePng = (png: GLTFPng) => {
+  var a = document.createElement("a");
+  a.href = png.uri;
+  a.download = `${png.name}.png`;
+  a.click();
+}
+
+const zipAndSavePngs = (zipName: string, pngs: GLTFPng[]) => {
   const zip = new JSZip();
-  for (let i = 0; i < pngs.length; i++) {
-    let b64 = pngs[i];
-    zip.file("export_" + i.toString() + ".png", b64, { base64: true });
+  for (const png of pngs) {
+    const b64 = png.uri.split(",")[1]
+    zip.file(`${png.name}.png`, b64, { base64: true });
   }
+
   zip.generateAsync({ type: "blob" })
     .then(function (content) {
       var downloadLink = document.createElement("a");
       downloadLink.href = URL.createObjectURL(content);
-      downloadLink.download = "images.zip";
+      downloadLink.download = `${zipName}.zip`;
       document.body.appendChild(downloadLink);
       downloadLink.click();
       document.body.removeChild(downloadLink);
@@ -88,6 +115,16 @@ const zipAndSavePngs = (pngs: string[]) => {
     .catch(function (error) {
       throw new Error("Error generating zip file:", error);
     });
+}
+
+const downloadPngs = (pngs: GLTFPng[], zipName: string | null) => {
+  if (zipName && pngs.length > 1) {
+    zipAndSavePngs(zipName, pngs);
+  } else {
+    for (const png of pngs) {
+      savePng(png)
+    }
+  }
 }
 
 // --- Components ---
@@ -122,6 +159,7 @@ const GLTFProcessor: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [mode, setMode] = useState<'upload' | 'paste'>('upload'); // 'upload' or 'paste'
   const [alphaBleedingEnabled, _setAlphaBleedingEnabled] = useState<boolean>(false); // State for alpha bleeding
+  const [fileZippingEnabled, setFileZippingEnabled] = useState<boolean>(true);
 
   const handleProcess = useCallback((): (() => (void)) => {
     setIsLoading(true);
@@ -140,7 +178,7 @@ const GLTFProcessor: React.FC = () => {
       // Append the alpha bleeding status to the result data for demonstration
       if (result && result.data) {
         //result.data.metadata['Alpha Bleed'] = alphaBleedingEnabled ? 'true' : 'false';
-        zipAndSavePngs(result.data.pngs);
+        downloadPngs(result.data.pngs, fileZippingEnabled ? "gltf_images" : null);
       }
 
       setProcessingResult(result);
@@ -149,7 +187,7 @@ const GLTFProcessor: React.FC = () => {
 
     // Clear timeout on unmount or re-run
     return () => clearTimeout(timeoutId);
-  }, [mode, fileInput, inputText, alphaBleedingEnabled]);
+  }, [mode, fileInput, inputText, alphaBleedingEnabled, fileZippingEnabled]);
 
   const { getRootProps, getInputProps, open } = useDropzone({
     noClick: true, // Important: Prevents opening file dialog on dropzone click
@@ -184,7 +222,7 @@ const GLTFProcessor: React.FC = () => {
         // Append the alpha bleeding status to the result data for demonstration
         if (result && result.data) {
           //result.data.metadata['Alpha Bleed'] = alphaBleedingEnabled ? 'true' : 'false';
-          zipAndSavePngs(result.data.pngs);
+          downloadPngs(result.data.pngs, fileZippingEnabled ? "gltf_images" : null);
         }
 
         setProcessingResult(result);
@@ -270,6 +308,26 @@ const GLTFProcessor: React.FC = () => {
               ></span>
             </button>
           </div> */}
+
+          {<div className="flex items-center space-x-3 mb-6 p-3 bg-gray-700 rounded-lg">
+            <FileArchive className="w-5 h-5 text-indigo-400" />
+            <label htmlFor="file-zipping" className="text-gray-300 font-medium cursor-pointer flex items-center">
+              Zip Files
+            </label>
+
+            <button
+              id="file-zipping"
+              onClick={() => setFileZippingEnabled(prev => !prev)}
+              className={`relative ml-auto inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-700 ${fileZippingEnabled ? 'bg-green-600' : 'bg-gray-600'}`}
+              aria-pressed={fileZippingEnabled}
+            >
+              <span className="sr-only">Toggle file zipping</span>
+              <span
+                aria-hidden="true"
+                className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200 ${fileZippingEnabled ? 'translate-x-5' : 'translate-x-0'}`}
+              ></span>
+            </button>
+          </div>}
 
 
           {/* Input Area */}
