@@ -1,3 +1,7 @@
+This repository is a companion react app that can be used along with the [roblox photobooth plugin](https://devforum.roblox.com/t/3401720) for some added functionality on the file system.
+
+The UI of the site was vibe-coded in afternoon with AI. All the underlying code for the website's tools were written by a human.
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
