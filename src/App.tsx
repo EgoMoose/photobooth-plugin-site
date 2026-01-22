@@ -54,13 +54,36 @@ const processGLTF = (data: string): IGLTFProcessResult => {
       }
 
       const imgCount: number = json.images ? json.images.length : 0;
+      if (imgCount === 0) {
+        throw new Error("Provided glTF has no images to extract.");
+      }
 
       const pngs: GLTFPng[] = [];
-      for (let i = 0; i < json.images.length; i++) {
-        pngs.push({
-          name: json.meshes[i] ? sanitizeFilename(json.meshes[i].name) : `unknown_${crypto.randomUUID()}_${i.toString()}`,
-          uri: json.images[i].uri,
-        });
+      const used: Set<number> = new Set();
+
+      const meshCount: number = json.meshes ? json.meshes.length : 0;
+      for (let i = 0; i < meshCount; i++) {
+        const materialIndex: (number | undefined) = json.meshes[i].primitives[0]?.material;
+        const imageIndex: (number | undefined) = typeof (materialIndex) === 'number' ? json.materials[materialIndex]?.pbrMetallicRoughness?.baseColorTexture?.index : undefined;
+
+        if (typeof (imageIndex) === 'number' && json.meshes[i]?.name) {
+          pngs.push({
+            name: sanitizeFilename(json.meshes[i].name),
+            uri: json.images[imageIndex].uri,
+          })
+
+          used.add(imageIndex);
+        }
+      }
+
+      for (let i = 0; i < imgCount; i++) {
+        if (!used.has(i)) {
+          const filename = `unknown_${crypto.randomUUID()}_${pngs.length.toString()}`;
+          pngs.push({
+            name: filename,
+            uri: json.images[i].uri,
+          })
+        }
       }
 
       const jsonData: IProcessData = {
