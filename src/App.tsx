@@ -89,7 +89,7 @@ const processGLTF = (data: string): IGLTFProcessResult => {
       const jsonData: IProcessData = {
         pngs: pngs,
         metadata: {
-          ["Images"]: imgCount,
+          ["Images"]: pngs.length,
         }
       };
 
