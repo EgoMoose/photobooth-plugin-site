@@ -177,7 +177,6 @@ const Header: React.FC = () => (
 const GLTFProcessor: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [inputText, setInputText] = useState<string>('');
-  const [fileInput, setFileInput] = useState<File | null>(null);
   const [processingResult, setProcessingResult] = useState<IGLTFProcessResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [mode, setMode] = useState<'upload' | 'paste'>('upload'); // 'upload' or 'paste'
@@ -210,65 +209,95 @@ const GLTFProcessor: React.FC = () => {
 
     // Clear timeout on unmount or re-run
     return () => clearTimeout(timeoutId);
-  }, [mode, fileInput, inputText, alphaBleedingEnabled, fileZippingEnabled]);
+  }, [mode, inputText, alphaBleedingEnabled, fileZippingEnabled]);
 
   const { getRootProps, getInputProps, open } = useDropzone({
     noClick: true, // Important: Prevents opening file dialog on dropzone click
     accept: {
       'model/gltf+json': ['.gltf'],
     },
-    onDrop: acceptedFiles => {
-      const file = acceptedFiles[0];
-      if (!file) return;
-
-      setFileInput(file);
+    onDrop: async acceptedFiles => {
+      setIsLoading(true);
       setInputText(''); // Clear text input mode if file is selected
       setProcessingResult(null); // Clear previous result
 
-      const reader = new FileReader();
-      reader.onloadstart = () => setIsLoading(true);
-      reader.onload = (e: ProgressEvent<FileReader>) => {
-        let data: string | ArrayBuffer | null = e.target?.result ?? null;
-        let result: IGLTFProcessResult;
+      const readFilePromises = []
+      const processingResults: IGLTFProcessResult[] = [];
+      for (const file of acceptedFiles) {
+        readFilePromises.push(new Promise<void>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadstart = () => setIsLoading(true);
+          reader.onload = (e: ProgressEvent<FileReader>) => {
+            let data: string | ArrayBuffer | null = e.target?.result ?? null;
+            let result: IGLTFProcessResult;
 
-        if (data) {
-          // Actual file data parsing is complex, we just check headers and run the mock process
-          if (typeof data === 'string') {
-            result = processGLTF(data);
-          } else {
-            result = { isValid: false, message: "Unsupported file reader result type.", data: null };
+            if (data) {
+              // Actual file data parsing is complex, we just check headers and run the mock process
+              if (typeof data === 'string') {
+                result = processGLTF(data);
+              } else {
+                result = { isValid: false, message: "Unsupported file reader result type.", data: null };
+              }
+            } else {
+              result = { isValid: false, message: "File data could not be read.", data: null };
+            }
+
+            processingResults.push(result);
+            resolve();
+          };
+          reader.onerror = () => {
+            processingResults.push({ isValid: false, message: "Error reading file.", data: null });
+            resolve();
+          };
+
+          reader.readAsText(file);
+        }));
+      }
+
+      await Promise.all(readFilePromises);
+
+      const pngs = [];
+      let displayedResult: IGLTFProcessResult | undefined;
+      for (const result of processingResults) {
+        if (result && result.data) {
+          for (const png of result.data.pngs) {
+            pngs.push(png);
           }
         } else {
-          result = { isValid: false, message: "File data could not be read.", data: null };
+          displayedResult = result;
+        }
+      }
+
+      if (displayedResult == undefined) {
+        displayedResult = {
+          isValid: true,
+          message: `Downloading images...`,
+          data: {
+            pngs: pngs,
+            metadata: {
+              ["Images"]: pngs.length,
+            }
+          },
+        };
+
+        let zipName = "gltf_images";
+        if (acceptedFiles.length == 1) {
+          zipName = acceptedFiles[0].name.slice(0, -5);
         }
 
-        // Append the alpha bleeding status to the result data for demonstration
-        if (result && result.data) {
-          //result.data.metadata['Alpha Bleed'] = alphaBleedingEnabled ? 'true' : 'false';
-          downloadPngs(result.data.pngs, fileZippingEnabled ? "gltf_images" : null);
-        }
+        downloadPngs(pngs, fileZippingEnabled ? zipName : null);
+      }
 
-        setProcessingResult(result);
-        setIsLoading(false);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ''
-        }
-      };
-      reader.onerror = () => {
-        setProcessingResult({ isValid: false, message: "Error reading file.", data: null });
-        setIsLoading(false);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ''
-        }
-      };
-
-      reader.readAsText(file);
+      setProcessingResult(displayedResult);
+      setIsLoading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     },
   });
 
   const handleModeToggle = (newMode: 'upload' | 'paste'): void => {
     setMode(newMode);
-    setFileInput(null);
     setInputText('');
     setProcessingResult(null);
   }
